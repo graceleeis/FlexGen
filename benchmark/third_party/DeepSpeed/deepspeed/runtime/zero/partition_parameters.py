@@ -865,9 +865,60 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                                            partition_sz * i,
                                            partition_sz))
 
-                instrument_w_nvtx(torch.cat)(
-                    [p.ds_tensor.to(torch.cuda.current_device()) for p in params],
+
+                # start = torch.cuda.Event(enable_timing=True)
+                # end = torch.cuda.Event(enable_timing=True)
+                # from cuda import cuda
+
+                # # err, stream = cuda.cuStreamCreate(0)
+                # start.record()
+                # partitions[self.rank]  = torch.cat([p.ds_tensor for p in params]).to(torch.cuda.current_device())
+                # torch.cuda.synchronize()
+                # end.record()
+                # torch_cat_time = start.elapsed_time(end)
+
+                # # src_index = t.data_ptr()
+                # # dst_index = partitions[self.rank].data_ptr()
+                # # element_bytes = flat_tensor.numel()*flat_tensor.element_size()
+
+                # # start.record()
+                # # # err, = cuda.cuMemcpyHtoD(dst_index, src_index, element_bytes)
+                # # partitions[self.rank] = t.to(torch.cuda.current_device())
+                # # end.record()
+                # # torch.cuda.synchronize()
+                # # print(f"XR find time to copy {element_bytes} bytes tensor cost: {start.elapsed_time(end)} ms, torch_cat cost {torch_cat_time} ms")
+                # print(f"XR find time to copy {flat_tensor.numel()*flat_tensor.element_size()} bytes torch_cat cost {torch_cat_time} ms")
+
+
+                # t = torch.cat([p.ds_tensor for p in params])
+                # start.record()
+                # # partitions[self.rank].copy_(t, non_blocking=True)
+                # # partitions[self.rank] = t.to(device=torch.cuda.current_device())
+                # # instrument_w_nvtx(partitions[self.rank].copy_)(
+                # #     torch.cat([p.ds_tensor for p in params]))
+                # instrument_w_nvtx(torch.cat)(
+                #     [p.ds_tensor.to(torch.cuda.current_device()) for p in params],
+                #     out=partitions[self.rank])
+                # end.record()
+                # torch.cuda.synchronize()
+                # print(f"XR find time to copy {flat_tensor.numel()*flat_tensor.element_size()} bytes tensor cost: {start.elapsed_time(end)} ms")
+
+                start = torch.cuda.Event(enable_timing=True)
+                end = torch.cuda.Event(enable_timing=True)
+
+                start.record()
+                torch.cat([p.ds_tensor.to(torch.cuda.current_device()) for p in params],
                     out=partitions[self.rank])
+                # instrument_w_nvtx(torch.cat)(
+                #     [p.ds_tensor.to(torch.cuda.current_device()) for p in params],
+                #     out=partitions[self.rank])
+                end.record()
+
+                # Waits for everything to finish running
+                torch.cuda.synchronize()
+
+                print(f"XR find time to copy {flat_tensor.numel()*flat_tensor.element_size()} bytes tensor cost: {start.elapsed_time(end)} ms")
+
                 handle = _dist_allgather_fn(partitions[self.rank],
                                             flat_tensor,
                                             self.ds_process_group)
