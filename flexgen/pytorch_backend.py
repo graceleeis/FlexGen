@@ -852,15 +852,17 @@ def general_copy(dst: TorchTensor, dst_indices: Tuple[slice],
         # The normal path
         src = src.data[src_indices] if src_indices else src.data
         dst = dst.data[dst_indices] if dst_indices else dst.data
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
+        # start = torch.cuda.Event(enable_timing=True)
+        # end = torch.cuda.Event(enable_timing=True)
 
-        start.record()
+        # start.record()
         dst.copy_(src, non_blocking=True)
-        end.record()
-        torch.cuda.synchronize()
+        # from cuda import cuda
+        # err, = cuda.cuMemcpyHtoD(dst.data_ptr(), src.data_ptr(), src.numel()*src.element_size())
+        # end.record()
+        # torch.cuda.synchronize()
 
-        print(f"XR find time to copy {dst.numel()*dst.element_size()} bytes tensor cost: {start.elapsed_time(end)} ms")
+        # print(f"XR find time to copy {dst.numel()*dst.element_size()} bytes tensor cost: {start.elapsed_time(end)} ms")
 
 
 
