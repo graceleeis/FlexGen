@@ -33,10 +33,12 @@ from deepspeed.utils.debug import (debug_param2name_id_shape,
                                    debug_param2name_id_shape_status)
 from ..swap_tensor.partitioned_param_swapper import AsyncPartitionedParameterSwapper, PartitionedParamStatus
 from cuda import cuda
+from shared_memory_dict import SharedMemoryDict
 
 param_count = 0
 partitioned_param_data_shape = [0]
 zero_init_enabled = False
+# key_dict = SharedMemoryDict(name='cache_dict', size=50240000000)
 key_dict = {}
 
 def _dist_allgather_fn(input_tensor: Tensor, output_tensor: Tensor, group=None):
@@ -862,21 +864,26 @@ class Init(InsertPostInitMethodToModuleSubClasses):
                                           device=torch.cuda.current_device(),
                                           requires_grad=False)
                 partitions: List[Parameter] = []
-                for i in range(self.world_size):
-                    partitions.append(
-                        flat_tensor.narrow(0,
-                                           partition_sz * i,
-                                           partition_sz))
-
-
+                # for i in range(self.world_size):
+                #         partitions.append(
+                #             flat_tensor.narrow(0,
+                #                             partition_sz * i,
+                #                             partition_sz))
                 if tk not in key_dict:
                     # print("using new tensor")
+                    for i in range(self.world_size):
+                        partitions.append(
+                            flat_tensor.narrow(0,
+                                            partition_sz * i,
+                                            partition_sz))
                     instrument_w_nvtx(torch.cat)([p.ds_tensor.to(torch.cuda.current_device()) for p in params],out=partitions[self.rank])
                     key_dict[tk] = torch.cat([p.ds_tensor for p in params]).pin_memory()
                 else:
                     # print("using cached tensor")
-                    # partitions[self.rank] = key_dict[tk].to(torch.cuda.current_device())
-                    partitions[self.rank].copy_(key_dict[tk])
+                    partitions = [None] * self.world_size
+                    # breakpoint()
+                    partitions[self.rank] = key_dict[tk].to(torch.cuda.current_device())
+                    # partitions[self.rank].copy_(key_dict[tk], non_blocking=True)
                     # err, = cuda.cuMemcpyHtoD(partitions[self.rank].data_ptr(), key_dict[tk].data_ptr(), flat_tensor.numel()*flat_tensor.element_size())
 
                 handle = _dist_allgather_fn(partitions[self.rank],

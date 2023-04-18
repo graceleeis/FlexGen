@@ -261,22 +261,23 @@ def run_generation(model_name, batch_size, prompt_len, gen_len, cut_gen_len,
     with torch.no_grad():
         output_ids = model.generate(input_ids=input_ids, **generate_kwargs_warmup)
     # Run
-    # breakpoint()
     timers("generate-forward").reset()
     # t0 = time.time()
     generate_kwargs = dict(max_new_tokens=execute_gen_len, do_sample=False)
     with torch.no_grad():
-        # from viztracer import VizTracer
-        # tracer = VizTracer(output_file="result.json", max_stack_depth=20, tracer_entries=10000000)
-        # tracer.start()
         for i in range(3):
             print(f"in step {i}\n")
-            import time
-            start = time.time()
+            if i==1:
+                from viztracer import VizTracer
+                tracer = VizTracer(output_file="result.json", tracer_entries=5000000)
+                tracer.start()
+            # import time
+            # start = time.time()
             output_ids = model.generate(input_ids=input_ids, **generate_kwargs)
-            print(f"step {i} time: {time.time() - start}\n")
-        # tracer.stop()
-        # tracer.save() # also takes output_file as an optional argument
+            # print(f"step {i} time: {time.time() - start}\n")
+            if i==1:
+                tracer.stop()
+                tracer.save() # also takes output_file as an optional argument
     costs = timers("generate-forward").costs
 
     if use_deepspeed and args.local_rank != 0:
